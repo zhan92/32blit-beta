@@ -175,10 +175,25 @@ function(blit_executable_int_flash NAME SOURCES)
 	set_target_properties(${NAME} PROPERTIES LINK_DEPENDS ${MCU_LINKER_SCRIPT} SUFFIX ".elf")
 
 	blit_executable_common(${NAME})
+
+	target_include_directories(${NAME}
+		PRIVATE
+			"../../32blit-stm32/Inc"
+			"../../32blit-stm32/Drivers/STM32H7xx_HAL_Driver/Inc"
+			"../../32blit-stm32/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy"
+			"../../32blit-stm32/Drivers/CMSIS/Device/ST/STM32H7xx/Include"
+			"../../32blit-stm32/Drivers/CMSIS/Include"
+			"../../32blit-stm32/Drivers/CMSIS/Include"
+			"../../32blit-stm32/Middlewares/Third_Party/FatFs/src"
+			"../../32blit-stm32/Middlewares/ST/STM32_USB_Device_Library/Core/Inc"
+			"../../32blit-stm32/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc"
+	)
+	target_compile_definitions(${NAME}
+		PRIVATE
+			-DUSE_HAL_DRIVER
+			-DUSE_USB_HS
+			-DSTM32H750xx
+			-DCDC_FIFO_BUFFERS=${CDC_FIFO_BUFFERS}
+	)
 endfunction()
 
-blit_executable_int_flash(flash-loader Src/flash-loader.cpp)
-target_include_directories(flash-loader PRIVATE ${INCLUDE_DIRS})
-target_compile_definitions(flash-loader
-	PRIVATE
-		${DEFINITIONS})
