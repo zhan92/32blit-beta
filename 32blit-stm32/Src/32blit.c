@@ -682,6 +682,9 @@ void blit_switch_execution(void)
 {
 	// stop the DAC DMA
   HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+  HAL_ADC_Stop_DMA(&hadc1);
+  HAL_ADC_Stop_DMA(&hadc3);
+  HAL_NVIC_DisableIRQ(LTDC_IRQn);
 
   // stop USB
   USBD_Stop(&hUsbDeviceHS);
