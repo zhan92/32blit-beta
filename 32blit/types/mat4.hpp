@@ -42,6 +42,9 @@ struct Mat4 {
   static Mat4 rotation(float a, Vec3 v);
   static Mat4 translation(Vec3 v);
   static Mat4 scale(Vec3 v);
+  static Mat4 ortho(float l, float r, float b, float t, float n, float f);
+  Vec3 transform(Vec3 a);
+
   void inverse();
 };
 
