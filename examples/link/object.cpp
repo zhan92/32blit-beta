@@ -64,7 +64,7 @@ group::~group() {
   camera
 */
 
-camera::camera(vertex p, Vec3 d, Vec3 u) :p(p), d(d), u(u) {
+camera::camera(Vec3 p, Vec3 d, Vec3 u) :p(p), d(d), u(u) {
   d.normalize();
   u.normalize();
 }
@@ -82,7 +82,7 @@ Mat4 camera::rotation_matrix() {
 
   Vec3 rv = rn.cross(ru);
 
-  Mat4 r;
+  Mat4 r = Mat4::identity();
 
   r.v00 = ru.x; r.v01 = ru.y; r.v02 = ru.z;
   r.v10 = rv.x; r.v11 = rv.y; r.v12 = rv.z;
@@ -92,9 +92,7 @@ Mat4 camera::rotation_matrix() {
 }
 
 Mat4 camera::ortho_projection_matrix(float width, float height) {
-  Mat4 r;
-  
-  r = Mat4::ortho(-width / 2.0f, width / 2.0f, -height / 2.0f, height / 2.0f, (width + height) / 4.0f, -(width + height) / 4.0f);
+  Mat4 r = Mat4::ortho(-width / 2.0f, width / 2.0f, height / 2.0f, -height / 2.0f, (width + height) / 4.0f, -(width + height) / 4.0f);
 
   return r;
 }
@@ -116,24 +114,25 @@ Mat4 camera::perspective_projection_matrix(float fov, float width, float height,
   return m;
 }
 
-void discard_whitespace(char **p, char *eof) {
-  while((**p == ' ' || **p == '\t' || **p == '\n') && (*p < eof)) {
+
+void discard_whitespace(char** p, char* eof, char extra_delimiter = '\0') {
+  while ((**p == ' ' || **p == '\t' || **p == '\n' || **p == extra_delimiter) && (*p < eof)) {
     (*p)++;
   }
 }
 
-const char* fetch_token(char **p, char *eof) {
+const char* fetch_token(char** p, char* eof, char extra_delimiter = '\0') {
   static char token[32];
   memset(token, 0, 32);
 
-  char *t = token;
-  while((**p != '\t') && (**p != ' ') && (**p != '\n') && (*p < eof)) {
-    **p = *t;
+  char* t = token;
+  while ((**p != '\t') && (**p != ' ') && (**p != '\n') && (**p != extra_delimiter) && (*p < eof)) {
+    *t = **p;
     (*p)++;
     t++;
   }
 
-  discard_whitespace(p, eof);
+  discard_whitespace(p, eof, extra_delimiter);
 
   return token;
 }
@@ -145,7 +144,7 @@ object* load_obj(Asset asset) {
   object *obj = new object();
 
   // first pass: count number of groups, vertices, texture coords, and normal Vec3s
-  while (p <= eof) { 
+  while (p < eof) { 
     const char *token = fetch_token(&p, eof);
 
     if(!strcmp(token, "g")) {
@@ -165,125 +164,98 @@ object* load_obj(Asset asset) {
     }        
   }
 
-return obj;
   // allocate storage
-  obj->g = new  group[obj->gc];
-  obj->v = new vertex[obj->vc];
-  
-  obj->t = new vertex[obj->tc];
-  obj->n = new Vec3[obj->nc];
-  
-  /*
-  // group index starts at -1 since it gets incremented each time we encounter a
-  // group ("g") command.
-  uint32_t gi = -1, vi = 0, ti = 0, ni = 0;
+      obj->g = new  group[obj->gc];
+      obj->v = new Vec3[obj->vc];
 
-  // second pass: extra vertices, texture coordinates, and normals
-  // also count the number of faces per group
-  p = (uint8_t*)asset.data; // back to the start...
-  while (p <= eof) {     
-    // each time we encounter a group ("g") then we move on to the next group index
-    // to start counting the faces for that group
-    if(p[0] == 'g') {
-      gi++;
-    } else if (p[0] == 'f') { 
+      obj->t = new Vec2[obj->tc];
+      obj->n = new Vec3[obj->nc];
+  
+      // group index starts at -1 since it gets incremented each time we encounter a
+      // group ("g") command.
+      uint32_t gi = -1, vi = 0, ti = 0, ni = 0;
+
+      // second pass: extra vertices, texture coordinates, and normals
+      // also count the number of faces per group
+      p = (char*)asset.data; // back to the start...
+      while (p < eof) {
+        const char* token = fetch_token(&p, eof);
+
+        // each time we encounter a group ("g") then we move on to the next group index
+        // to start counting the faces for that group
+        if (!strcmp(token, "g")) {
+          gi++;
+        }
+
+        if (!strcmp(token, "f")) {
           // if it's a quad then we need to add an extra face
-      obj->g[gi].fc += std::count(line.begin(), line.end(), ' ') < 4 ? 1 : 2;
-    } else if (p[0] == 'v' && p[1] == 'n') { 
-      obj->n[ni].x = stof(strip_token(line, " "));
-      obj->n[ni].y = stof(strip_token(line, " "));
-      obj->n[ni].z = stof(strip_token(line, " "));
-      ni++;
-    } else if (p[0] == 'v' && p[1] == 't') { 
-      obj->t[ti].x = stof(strip_token(line, " "));
-      obj->t[ti].y = stof(strip_token(line, " "));
-      ti++;
-    } else if (p[0] == 'v') { 
-      obj->v[vi].x = stof(strip_token(line, " "));
-      obj->v[vi].y = stof(strip_token(line, " "));
-      obj->v[vi].z = stof(strip_token(line, " "));
-      vi++;
-    }
+          uint8_t space_count = 0;
+          while (*p != '\n') {
+            if (*p == ' ') {
+              space_count++;
+            }
+            p++;
+          }
+          obj->g[gi].fc += space_count < 4 ? 1 : 2;
+        }
 
-    while(*p != '\n') { p++; } p++;
+        if (!strcmp(token, "v")) {
+          obj->v[vi].x = atof(fetch_token(&p, eof));
+          obj->v[vi].y = atof(fetch_token(&p, eof));
+          obj->v[vi].z = atof(fetch_token(&p, eof));
+          vi++;
+        }
 
-
-    if (type == "g") { gi++; }
-    if (type == "f") { 
-    }
-
-    if (type == "v") {
-    }
-
-    if (type == "vn") {
-    }
-
-    if (type == "vt") {
-    }
-  }
-  
-  // allocate storage for faces on each group
-  for (gi = 0; gi < obj->gc; gi++) {
-    obj->g[gi].f = new face[obj->g[gi].fc];
-  }
-
-  // third pass: now extract the face indices      
-  uint32_t fi = 0; gi = -1;
-  p = (uint8_t*)asset.data; // back to the start...
-  while (p <= eof) { 
-    string line = getline(&p); 
-
-    string type = strip_token(line, " \t");
-
-    if (type == "g") { gi++; fi = 0; }
-    if (type == "f") {
-      face *f = &obj->g[gi].f[fi];
-
-      string f0 = strip_token(line, " \t");
-      string f1 = strip_token(line, " \t");
-      string f2 = strip_token(line, " \t");
-
-      f->v[0] = stol(strip_token(f0, "/")) - 1;
-      f->t[0] = stol(strip_token(f0, "/")) - 1;
-      f->v[1] = stol(strip_token(f1, "/")) - 1;
-      f->t[1] = stol(strip_token(f1, "/")) - 1;
-      f->v[2] = stol(strip_token(f2, "/")) - 1;
-      f->t[2] = stol(strip_token(f2, "/")) - 1;
-
-      if (f0 != "") {  // we can assume there is a normal value supplied
-        f->n[0] = stol(strip_token(f0, "/")) - 1;
-        f->n[1] = stol(strip_token(f1, "/")) - 1;
-        f->n[2] = stol(strip_token(f2, "/")) - 1;
+        if (!strcmp(token, "vn")) {
+          obj->n[ni].x = atof(fetch_token(&p, eof));
+          obj->n[ni].y = atof(fetch_token(&p, eof));
+          obj->n[ni].z = atof(fetch_token(&p, eof));
+          ni++;
+        }
+        
+        if (!strcmp(token, "vt")) {
+          obj->t[ti].x = atof(fetch_token(&p, eof));
+          obj->t[ti].y = atof(fetch_token(&p, eof));
+          ti++;
+        }
+        
+      }
+      
+      // allocate storage for faces on each group
+      for (gi = 0; gi < obj->gc; gi++) {
+        obj->g[gi].f = new face[obj->g[gi].fc];
       }
 
-      fi++;
-      // THIS DOESNT WORK! }:-(
-      // if (line != "") {
-      //   face *f = &obj->g[gi].f[fi];
+      // third pass: now extract the face indices
+      uint32_t fi = 0; gi = -1;
+      p = (char*)asset.data; // back to the start...
+      while (p < eof) {
+        const char *token = fetch_token(&p, eof);
 
-      //   string f3 = strip_token(line, " \t");
+        if (!strcmp(token, "g")) {
+            gi++; fi = 0;
+        }
 
-      //   f->v[0] = stol(strip_token(f0, "/")) - 1;
-      //   f->t[0] = stol(strip_token(f0, "/")) - 1;
-      //   f->v[2] = stol(strip_token(f1, "/")) - 1;
-      //   f->t[2] = stol(strip_token(f1, "/")) - 1;
-      //   f->v[3] = stol(strip_token(f2, "/")) - 1;
-      //   f->t[3] = stol(strip_token(f2, "/")) - 1;
+        if (!strcmp(token, "f")) {
+          face *f = &obj->g[gi].f[fi];
 
+          f->v[2] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->t[2] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->n[2] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-      //   f->v[0] = stol(strip_token(f0, "/")) - 1;
-      //   f->t[0] = stol(strip_token(f0, "/")) - 1;
+          f->v[1] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->t[1] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->n[1] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-      //   f->obj->g[gi].f[fi].v[3] = stol(strip_token(f3, "/")) - 1;
-      //   obj->g[gi].f[fi].t[3] = stol(strip_token(f3, "/")) - 1;
-      //   if (f3 != "") {
-      //     obj->g[gi].f[fi].n[2] = stol(strip_token(f3, "/")) - 1;
-      //   }
-      // }    
-    }
-  }        
-  
-  obj->update_bbox();
+          f->v[0] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->t[0] = atol(fetch_token(&p, eof, '/')) - 1;
+          f->n[0] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-  return obj;*/
+          fi++;
+        }
+      }
+
+      obj->update_bbox();
+
+      return obj;
 }

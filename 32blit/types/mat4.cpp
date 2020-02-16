@@ -110,7 +110,7 @@ Vec3 Mat4::transform(Vec3 a) {
 }
 
 Mat4 Mat4::ortho(float l, float r, float b, float t, float n, float f) {
-  Mat4 result;
+  Mat4 result = Mat4::identity();
   result.v00 = 2.0f / (r - l);
   result.v11 = 2.0f / (t - b);
   result.v22 = 2.0f / (f - n);

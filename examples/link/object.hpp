@@ -2,10 +2,8 @@
 
 using namespace blit;
 
-typedef Vec3 vertex;
-
 struct bbox {
-  vertex v1, v2;          // opposing (min / max) corners of bounding box
+  Vec3 v1, v2;          // opposing (min / max) corners of bounding box
 };
 
 struct face {
@@ -31,15 +29,15 @@ public:
   face     *f;            // pointer to face list
   uint32_t  fc = 0;           // face count
 
-  texture * t = NULL;
+  Surface * t = NULL;
 };
 
 
 class object {
 public:
-  vertex   *v;            // pointer to vertex list
+  Vec3   *v;            // pointer to vertex list
   uint32_t  vc = 0;           // vertex count
-  vertex   *t;            // pointer to texture coordinate list
+  Vec2   *t;            // pointer to texture coordinate list
   uint32_t  tc = 0;           // texture coordinate count
   Vec3   *n;            // pointer to normal Vec3s list
   uint32_t  nc = 0;           // texture coordinate count
@@ -65,13 +63,13 @@ class camera {
 
 
 public:
-  vertex p;                             // position
+  Vec3 p;                             // position
   Vec3 d;                             // direction
   Vec3 u = Vec3(0.0f, 1.0f, 0.0f);  // up Vec3
   float fov = 60.0f;
   
 
-  camera(vertex p, Vec3 d, Vec3 u);
+  camera(Vec3 p, Vec3 d, Vec3 u);
   Mat4 rotation_matrix();
   Mat4 translation_matrix();
   Mat4 ortho_projection_matrix(float width, float height);    
@@ -79,8 +77,8 @@ public:
 };
 
 
-void triangle3d(Surface *fb, object *obj, face *f, vertex *p, Vec3 *l, texture *t);
-void triangle3d_span(Surface *fb, object *obj, face *f, int32_t y, vertex *p, uint8_t a, uint8_t b, uint8_t c, uint8_t d, Vec3 *l, texture* t);
+void triangle3d(Surface *fb, object *obj, face *f, Vec3 *p, Vec3 *l, texture *t);
+void triangle3d_span(Surface *fb, object *obj, face *f, int32_t y, Vec3 *p, uint8_t a, uint8_t b, uint8_t c, uint8_t d, Vec3 *l, texture* t);
 
 
 object *load_obj(Asset asset);
