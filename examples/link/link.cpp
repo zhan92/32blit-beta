@@ -393,7 +393,7 @@ void render(uint32_t time_ms) {
     group *g = &link_object->g[gi];
     for (uint32_t fi = 0; fi < g->fc; fi++) {
       face *f = &g->f[fi];        
-
+ 
       Vec3 vertices[3] = {
         ot.transform(link_object->v[f->v[0]]),
         ot.transform(link_object->v[f->v[1]]),
