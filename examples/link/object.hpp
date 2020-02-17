@@ -73,7 +73,7 @@ public:
   Mat4 rotation_matrix();
   Mat4 translation_matrix();
   Mat4 ortho_projection_matrix(float width, float height);    
-  Mat4 perspective_projection_matrix(float fov, float width, float height, float near, float far);
+  Mat4 perspective_projection_matrix(float fov, Rect viewport, float near, float far);
 };
 
 
@@ -81,4 +81,4 @@ void triangle3d(Surface *fb, object *obj, face *f, Vec3 *p, Vec3 *l, texture *t)
 void triangle3d_span(Surface *fb, object *obj, face *f, int32_t y, Vec3 *p, uint8_t a, uint8_t b, uint8_t c, uint8_t d, Vec3 *l, texture* t);
 
 
-object *load_obj(Asset asset);
+object *load_obj(char *data);

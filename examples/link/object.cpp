@@ -97,19 +97,18 @@ Mat4 camera::ortho_projection_matrix(float width, float height) {
   return r;
 }
 
-Mat4 camera::perspective_projection_matrix(float fov, float width, float height, float near, float far) {
+Mat4 camera::perspective_projection_matrix(float fov, Rect viewport, float near, float far) {
   Mat4 m;
-
-  const float aspect = width / height;
-  const float range = near - far;
-  const float htan = tanf(fov * M_PI / 180.0f / 2.0f);
-
-  m.v00 = 1.0f / (htan * aspect);
-  m.v11 = 1.0f / htan;
-  m.v22 = (near + far) / range;
-  m.v32 = 2.0f * far * near / range;
+  
+  float scale = 1.0f / tan(fov * 0.5f * M_PI / 180.0f);
+  m.v00 = scale; // x coordinate scale
+  m.v11 = scale; // y coordinate scale
+  m.v22 = -far / (far - near);        // remap z 0 .. 1
+  m.v32 = -far * near / (far - near); // remap z 0 .. 1
+  //m.v22 = -(far + near) / (far - near); // remap z 0 .. 1
+  //m.v32 = -(2.0f * far * near) / (far - near); // remap z 0 .. 1
   m.v23 = -1.0f;
-  m.v33 = 0.0f;
+  m.v33 = 0;
 
   return m;
 }
@@ -137,9 +136,9 @@ const char* fetch_token(char** p, char* eof, char extra_delimiter = '\0') {
   return token;
 }
 
-object* load_obj(Asset asset) {      
-  char *p = (char *)asset.data;
-  char *eof = p + asset.length;
+object* load_obj(char *data) {      
+  char *p = data;
+  char *eof = p + strlen(data);
 
   object *obj = new object();
 
@@ -165,97 +164,98 @@ object* load_obj(Asset asset) {
   }
 
   // allocate storage
-      obj->g = new  group[obj->gc];
-      obj->v = new Vec3[obj->vc];
+  obj->g = new group[obj->gc];
+  obj->v = new Vec3[obj->vc];
+  obj->t = new Vec2[obj->tc];
+  obj->n = new Vec3[obj->nc];
 
-      obj->t = new Vec2[obj->tc];
-      obj->n = new Vec3[obj->nc];
+  // group index starts at -1 since it gets incremented each time we encounter a
+  // group ("g") command.
+  uint32_t gi = -1, vi = 0, ti = 0, ni = 0;
+
+  // second pass: extra vertices, texture coordinates, and normals
+  // also count the number of faces per group
+  p = data; // back to the start...
+  while (p < eof) {
+    const char* token = fetch_token(&p, eof);
+
+    // each time we encounter a group ("g") then we move on to the next group index
+    // to start counting the faces for that group
+    if (!strcmp(token, "g")) {
+      gi++;
+    }
+
+    if (!strcmp(token, "f")) {
+      // if it's a quad then we need to add an extra face
+      uint8_t space_count = 0;
+      while (*p != '\n') {
+        if (*p == ' ') {
+          space_count++;
+        }
+        p++;
+      }
+      obj->g[gi].fc += space_count < 4 ? 1 : 2;
+    }
+
+    if (!strcmp(token, "v")) {
+      obj->v[vi].x = atof(fetch_token(&p, eof));
+      obj->v[vi].y = atof(fetch_token(&p, eof));
+      obj->v[vi].z = atof(fetch_token(&p, eof));
+      vi++;
+    }
+
+    if (!strcmp(token, "vn")) {
+      obj->n[ni].x = atof(fetch_token(&p, eof));
+      obj->n[ni].y = atof(fetch_token(&p, eof));
+      obj->n[ni].z = atof(fetch_token(&p, eof));
+      ni++;
+    }
+    
+    if (!strcmp(token, "vt")) {
+      obj->t[ti].x = atof(fetch_token(&p, eof));
+      obj->t[ti].y = atof(fetch_token(&p, eof));
+      ti++;
+    }
+    
+  }
   
-      // group index starts at -1 since it gets incremented each time we encounter a
-      // group ("g") command.
-      uint32_t gi = -1, vi = 0, ti = 0, ni = 0;
+  // allocate storage for faces on each group
+  for (gi = 0; gi < obj->gc; gi++) {
+    obj->g[gi].f = new face[obj->g[gi].fc];
+  }
 
-      // second pass: extra vertices, texture coordinates, and normals
-      // also count the number of faces per group
-      p = (char*)asset.data; // back to the start...
-      while (p < eof) {
-        const char* token = fetch_token(&p, eof);
+  // third pass: now extract the face indices
+  uint32_t fi = 0; gi = -1;
+  p = data; // back to the start...
+  while (p < eof) {
+    const char *token = fetch_token(&p, eof);
 
-        // each time we encounter a group ("g") then we move on to the next group index
-        // to start counting the faces for that group
-        if (!strcmp(token, "g")) {
-          gi++;
-        }
+    if (!strcmp(token, "g")) {
+        gi++; fi = 0;
+    }
 
-        if (!strcmp(token, "f")) {
-          // if it's a quad then we need to add an extra face
-          uint8_t space_count = 0;
-          while (*p != '\n') {
-            if (*p == ' ') {
-              space_count++;
-            }
-            p++;
-          }
-          obj->g[gi].fc += space_count < 4 ? 1 : 2;
-        }
+    if (!strcmp(token, "f")) {
+      face *f = &obj->g[gi].f[fi];
 
-        if (!strcmp(token, "v")) {
-          obj->v[vi].x = atof(fetch_token(&p, eof));
-          obj->v[vi].y = atof(fetch_token(&p, eof));
-          obj->v[vi].z = atof(fetch_token(&p, eof));
-          vi++;
-        }
+      // read in this order (2, 1, 0) to reverse the default 
+      // "counter clockwise" winding order in .obj files
+      f->v[2] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->t[2] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->n[2] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-        if (!strcmp(token, "vn")) {
-          obj->n[ni].x = atof(fetch_token(&p, eof));
-          obj->n[ni].y = atof(fetch_token(&p, eof));
-          obj->n[ni].z = atof(fetch_token(&p, eof));
-          ni++;
-        }
-        
-        if (!strcmp(token, "vt")) {
-          obj->t[ti].x = atof(fetch_token(&p, eof));
-          obj->t[ti].y = atof(fetch_token(&p, eof));
-          ti++;
-        }
-        
-      }
-      
-      // allocate storage for faces on each group
-      for (gi = 0; gi < obj->gc; gi++) {
-        obj->g[gi].f = new face[obj->g[gi].fc];
-      }
+      f->v[1] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->t[1] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->n[1] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-      // third pass: now extract the face indices
-      uint32_t fi = 0; gi = -1;
-      p = (char*)asset.data; // back to the start...
-      while (p < eof) {
-        const char *token = fetch_token(&p, eof);
+      f->v[0] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->t[0] = atol(fetch_token(&p, eof, '/')) - 1;
+      f->n[0] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
 
-        if (!strcmp(token, "g")) {
-            gi++; fi = 0;
-        }
+      fi++;
+    }
+  }
 
-        if (!strcmp(token, "f")) {
-          face *f = &obj->g[gi].f[fi];
+  obj->update_bbox();
 
-          f->v[2] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->t[2] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->n[2] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
-
-          f->v[1] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->t[1] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->n[1] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
-
-          f->v[0] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->t[0] = atol(fetch_token(&p, eof, '/')) - 1;
-          f->n[0] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
-
-          fi++;
-        }
-      }
-
-      obj->update_bbox();
-
-      return obj;
+  return obj;
 }
