@@ -7,6 +7,7 @@ struct bbox {
 };
 
 struct face {
+  Pen color;
   uint32_t v[3];  // vertex indices
   uint32_t t[3];  // texture indices
   uint32_t n[3];  // normal indices

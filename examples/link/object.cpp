@@ -146,7 +146,11 @@ object* load_obj(char *data) {
         }
         p++;
       }
-      obj->g[gi].fc += space_count < 4 ? 1 : 2;
+      // grotty hack to ignore trailing space - needs to be handled properly
+      if (*(p - 1) == ' ') {
+        space_count--;
+      }
+      obj->g[gi].fc += space_count < 3 ? 1 : 2;
     }
 
     if (!strcmp(token, "v")) {
@@ -202,6 +206,28 @@ object* load_obj(char *data) {
       f->v[0] = atol(fetch_token(&p, eof, '/')) - 1;
       f->t[0] = atol(fetch_token(&p, eof, '/')) - 1;
       f->n[0] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
+
+      // if there is another vertex then it must be a quad so add the second face
+      if (*(p - 1) != '\n') {
+        fi++;
+
+        face *lf = f;
+        face *f = &obj->g[gi].f[fi];
+
+        // read in this order (2, 1, 0) to reverse the default 
+        // "counter clockwise" winding order in .obj files
+        f->v[2] = atol(fetch_token(&p, eof, '/')) - 1;
+        f->t[2] = atol(fetch_token(&p, eof, '/')) - 1;
+        f->n[2] = atol(fetch_token(&p, eof, '/')) - 1;  // TODO: support files without face normals
+
+        f->v[1] = lf->v[2];
+        f->t[1] = lf->t[2];
+        f->n[1] = lf->n[2];
+
+        f->v[0] = lf->v[0];
+        f->t[0] = lf->t[0];
+        f->n[0] = lf->n[0];
+      }
 
       fi++;
     }

@@ -16,7 +16,9 @@ int32_t modulo(int32_t x, int32_t n) {
   return (x % n + n) % n;
 }
 
-void draw_face(Vec3* vertices, Vec3* normals, Vec2* texture_coordinates, Surface* texture, Vec3 light, float* zbuffer, float near, float far) {
+uint32_t pixels_drawn = 0;
+
+void draw_face(Vec3* vertices, Vec3* normals, Vec2* texture_coordinates, Surface* texture, Vec3 light, Pen *color, float* zbuffer, float near, float far) {
   // convert vertices into Q8 integer points
   Point p0(vertices[0].x, vertices[0].y);
   Point p1(vertices[1].x, vertices[1].y);
@@ -84,6 +86,8 @@ void draw_face(Vec3* vertices, Vec3* normals, Vec2* texture_coordinates, Surface
         if (z > zbuffer[p.x + (p.y * screen.bounds.w)] && z > -1.0f) {
           zbuffer[p.x + (p.y * screen.bounds.w)] = z;
 
+          pixels_drawn++;
+
           if (texture) {
             Point interpolated_uv(
               t1x * alpha + t2x * beta + t3x * gamma,
@@ -92,33 +96,17 @@ void draw_face(Vec3* vertices, Vec3* normals, Vec2* texture_coordinates, Surface
 
             interpolated_uv.x = modulo(interpolated_uv.x, texture->bounds.w);
             interpolated_uv.y = texture->bounds.h - modulo(interpolated_uv.y, texture->bounds.h);
-
-            Vec3 interpolated_n = normals[0] * alpha + normals[1] * beta + normals[2] * gamma;
-            interpolated_n.normalize();
-            float diffuse = interpolated_n.dot(light);            
-            diffuse = std::max(diffuse, 0.2f);
-            //float light = dnl * 0.8f + 0.2f;
-            /*
-                        uint8_t r = alpha * 255;
-                        uint8_t g = beta * 255;
-                        uint8_t b = gamma * 255;
-
-                        screen.pen = Pen(r, g, b, 255);
-
-                        screen.pbf(&screen.pen, &screen, pixel_offset, 1);    */
-
             screen.pen = texture->palette[texture->data[interpolated_uv.x + interpolated_uv.y * texture->bounds.w]];
-            screen.pen.r *= diffuse;
-            screen.pen.g *= diffuse;
-            screen.pen.b *= diffuse;
+          } else {
+            screen.pen = *color;
           }
-          else {
-             uint8_t r = alpha * 255;
-             uint8_t g = beta * 255;
-             uint8_t b = gamma * 255;
 
-             screen.pen = Pen(r, g, b, 255);            
-          }
+          Vec3 interpolated_n = normals[0] * alpha + normals[1] * beta + normals[2] * gamma;
+          float diffuse = interpolated_n.dot(light);            
+          diffuse = std::max(diffuse, 0.2f);
+          screen.pen.r *= diffuse;
+          screen.pen.g *= diffuse;
+          screen.pen.b *= diffuse;
 
           screen.pbf(&screen.pen, &screen, pixel_offset, 1);
         }

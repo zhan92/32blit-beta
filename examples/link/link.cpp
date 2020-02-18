@@ -21,12 +21,13 @@ SpriteSheet *handopen_texture;
 SpriteSheet *bracelet_texture;
 SpriteSheet *glove_texture;
 SpriteSheet *sheath_texture;
+SpriteSheet *bookshelf_texture;
 
 float* zbuffer;
 
 object *link_object;
 Camera cam(
-  Vec3(0.0f, 0.0f, 0.0f), 
+  Vec3(0.0f, 0.0f, -1.5f), 
   Vec3(0.0f, 0.0f, -1.0f),
   Vec3(0.0f, 1.0f, 0.0f),
   90.0f);
@@ -40,9 +41,9 @@ void init() {
   set_screen_mode(lores);
 
   zbuffer = new float[screen.bounds.w * screen.bounds.h];
-
-  link_object = load_obj((char*)link_obj);
-
+  
+  /*
+  link_object = load_obj((char*)link_obj);    
   main_texture = SpriteSheet::load(main_texture_packed);
   boots_texture = SpriteSheet::load(boots_texture_packed);
   eye_texture = SpriteSheet::load(eye_texture_packed);
@@ -58,8 +59,27 @@ void init() {
   link_object->g[5].t = mouth_texture;
   link_object->g[6].t = handopen_texture;
   link_object->g[7].t = bracelet_texture;
- // link_object->g[8].t = glove_texture;
-  link_object->g[9].t = sheath_texture;
+  link_object->g[8].t = glove_texture;
+  link_object->g[9].t = sheath_texture;*/
+
+  link_object = load_obj((char*)bookshelf_obj);
+  bookshelf_texture = SpriteSheet::load(bookshelf_texture_packed);
+  //link_object->g[0].t = bookshelf_texture;
+
+  for (uint32_t gi = 0; gi < link_object->gc; gi++) {
+    group* g = &link_object->g[gi];
+    for (uint32_t fi = 0; fi < g->fc; fi++) {
+      // sample texture for face color
+      face* f = &g->f[fi];
+      Vec2* uv = &link_object->t[f->t[0]];
+      uint32_t u = uv->x * bookshelf_texture->bounds.w;
+      uint32_t v = bookshelf_texture->bounds.h - (uv->y * bookshelf_texture->bounds.h);
+
+      uint8_t pi = bookshelf_texture->data[u + (v * bookshelf_texture->bounds.w)];
+      f->color = bookshelf_texture->palette[pi];
+    }
+  }
+
 }
 
 void debug_matrix(Mat4& t) {
@@ -150,9 +170,10 @@ void render(uint32_t time_ms) {
   transformed_light.normalize();
 
   uint32_t tri_count = 0;
+  pixels_drawn = 0;
 
-  for (uint32_t gi = 1; gi < link_object->gc; gi++) {
-    if (gi == 8) {
+  for (uint32_t gi = 0; gi < link_object->gc; gi++) {
+    if (gi == 8) { // hide links "second" pair of hands...
       continue;
     }
     group *g = &link_object->g[gi];
@@ -180,7 +201,7 @@ void render(uint32_t time_ms) {
      // if (g->t) {
         //triangle3d(&screen, link_object, f, v, &objlight, g->t/*, st, &shadowmap*/);
         //screen.pen = Pen(255, 255, 255);
-        draw_face(vertices, normals, texture_coordinates, g->t, transformed_light, zbuffer, near, far);
+        draw_face(vertices, normals, texture_coordinates, g->t, transformed_light, &f->color, zbuffer, near, far);
     
         /*screen.pen = Pen(255, 255, 255, 100);
         screen.line(Point(vertices[0].x, vertices[0].y), Point(vertices[1].x, vertices[1].y));
@@ -199,6 +220,10 @@ void render(uint32_t time_ms) {
   
   uint32_t ms_end = now();  
   
+  screen.pen = Pen(255, 255, 255);  
+  screen.text(std::to_string(tri_count), minimal_font, Rect(2, screen.bounds.h - 33, 50, 10));
+  screen.text(std::to_string(pixels_drawn), minimal_font, Rect(2, screen.bounds.h - 23, 50, 10));
+
 
   // draw FPS meter* 
   screen.pen = Pen(255, 255, 255);
