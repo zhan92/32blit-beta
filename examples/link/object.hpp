@@ -59,22 +59,7 @@ public:
   void update_bbox();
 };
 
-class camera {
 
-
-public:
-  Vec3 p;                             // position
-  Vec3 d;                             // direction
-  Vec3 u = Vec3(0.0f, 1.0f, 0.0f);  // up Vec3
-  float fov = 60.0f;
-  
-
-  camera(Vec3 p, Vec3 d, Vec3 u);
-  Mat4 rotation_matrix();
-  Mat4 translation_matrix();
-  Mat4 ortho_projection_matrix(float width, float height);    
-  Mat4 perspective_projection_matrix(float fov, Rect viewport, float near, float far);
-};
 
 
 void triangle3d(Surface *fb, object *obj, face *f, Vec3 *p, Vec3 *l, texture *t);

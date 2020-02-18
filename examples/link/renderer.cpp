@@ -95,12 +95,9 @@ void draw_face(Vec3* vertices, Vec3* normals, Vec2* texture_coordinates, Surface
 
             Vec3 interpolated_n = normals[0] * alpha + normals[1] * beta + normals[2] * gamma;
             interpolated_n.normalize();
-            float diffuse = interpolated_n.dot(light);
-            if (diffuse < 0.5f) {
-              diffuse = 0.0f;
-            }
-            //diffuse = max(diffuse, 0.0f);
-            //float light = dnl * 1.0f + 0.0f;
+            float diffuse = interpolated_n.dot(light);            
+            diffuse = std::max(diffuse, 0.2f);
+            //float light = dnl * 0.8f + 0.2f;
             /*
                         uint8_t r = alpha * 255;
                         uint8_t g = beta * 255;

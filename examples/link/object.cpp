@@ -64,54 +64,6 @@ group::~group() {
   camera
 */
 
-camera::camera(Vec3 p, Vec3 d, Vec3 u) :p(p), d(d), u(u) {
-  d.normalize();
-  u.normalize();
-}
-
-Mat4 camera::translation_matrix() {
-  return Mat4::translation(Vec3(-p.x, -p.y, -p.z));
-}
-
-Mat4 camera::rotation_matrix() {
-  Vec3 rn(d);
-  rn.normalize();
-
-  Vec3 ru = u.cross(d);
-  ru.normalize();
-
-  Vec3 rv = rn.cross(ru);
-
-  Mat4 r = Mat4::identity();
-
-  r.v00 = ru.x; r.v01 = ru.y; r.v02 = ru.z;
-  r.v10 = rv.x; r.v11 = rv.y; r.v12 = rv.z;
-  r.v20 = rn.x; r.v21 = rn.y; r.v22 = rn.z;
-  
-  return r;
-}
-
-Mat4 camera::ortho_projection_matrix(float width, float height) {
-  Mat4 r = Mat4::ortho(-width / 2.0f, width / 2.0f, height / 2.0f, -height / 2.0f, (width + height) / 4.0f, -(width + height) / 4.0f);
-
-  return r;
-}
-
-Mat4 camera::perspective_projection_matrix(float fov, Rect viewport, float near, float far) {
-  Mat4 m;
-  
-  float scale = 1.0f / tan(fov * 0.5f * M_PI / 180.0f);
-  m.v00 = scale; // x coordinate scale
-  m.v11 = scale; // y coordinate scale
-  m.v22 = -far / (far - near);        // remap z 0 .. 1
-  m.v32 = -far * near / (far - near); // remap z 0 .. 1
-  //m.v22 = -(far + near) / (far - near); // remap z 0 .. 1
-  //m.v32 = -(2.0f * far * near) / (far - near); // remap z 0 .. 1
-  m.v23 = -1.0f;
-  m.v33 = 0;
-
-  return m;
-}
 
 
 void discard_whitespace(char** p, char* eof, char extra_delimiter = '\0') {

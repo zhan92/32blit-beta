@@ -5,6 +5,7 @@
 #include <cstdlib>
 
 #include "32blit.hpp"
+#include "3d/camera.hpp"
 #include "object.hpp"
 #include "renderer.hpp"
 #include "link.hpp"
@@ -24,10 +25,11 @@ SpriteSheet *sheath_texture;
 float* zbuffer;
 
 object *link_object;
-camera cam(
+Camera cam(
   Vec3(0.0f, 0.0f, 0.0f), 
   Vec3(0.0f, 0.0f, -1.0f),
-  Vec3(0.0f, 1.0f, 0.0f));
+  Vec3(0.0f, 1.0f, 0.0f),
+  90.0f);
 
 float scale = 1.0f;
 
@@ -56,7 +58,7 @@ void init() {
   link_object->g[5].t = mouth_texture;
   link_object->g[6].t = handopen_texture;
   link_object->g[7].t = bracelet_texture;
-  link_object->g[8].t = glove_texture;
+ // link_object->g[8].t = glove_texture;
   link_object->g[9].t = sheath_texture;
 }
 
@@ -114,7 +116,7 @@ void render(uint32_t time_ms) {
   camera_transformation *= Mat4::scale(Vec3(screen.bounds.w, screen.bounds.w, 1.0f));
   // camera projection  
   //camera_transformation *= cam.ortho_projection_matrix(1.0f, 1.0f);
-  camera_transformation *= cam.perspective_projection_matrix(90.0f, screen.clip, near, far);
+  camera_transformation *= cam.perspective_projection_matrix(screen.clip, near, far);
   // camera direction
   camera_transformation *= cam.rotation_matrix();
   // camera position
@@ -150,6 +152,9 @@ void render(uint32_t time_ms) {
   uint32_t tri_count = 0;
 
   for (uint32_t gi = 1; gi < link_object->gc; gi++) {
+    if (gi == 8) {
+      continue;
+    }
     group *g = &link_object->g[gi];
     for (uint32_t fi = 0; fi < g->fc; fi++) {
       face *f = &g->f[fi];        
@@ -224,7 +229,7 @@ void update(uint32_t time) {
     }*/
   }
 
-  cam.p += cam.d * joystick.y * 0.1f;
+  cam.position += cam.direction * joystick.y * 0.1f;
 
   last_buttons = buttons;
 }
